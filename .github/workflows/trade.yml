@@ -1,0 +1,32 @@
+name: trade
+# Runs one pass of the bot every few minutes during US market hours.
+# Cron is UTC and covers both EST and EDT; the bot checks Alpaca's clock itself.
+on:
+  schedule:
+    - cron: "*/5 13-16 * * 1-5"        # open + entry window (09:30-11:30 ET)
+    - cron: "*/15 17-20 * * 1-5"       # position management
+    - cron: "45,50,55 19,20 * * 1-5"   # end-of-day flatten (15:45 ET)
+  workflow_dispatch:
+
+concurrency:
+  group: trade
+  cancel-in-progress: false
+
+jobs:
+  run:
+    # KILL SWITCH: set repository variable LIVE_TRADING=true to enable; anything else disables.
+    if: vars.LIVE_TRADING == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python -m bot.live
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_API_SECRET: ${{ secrets.ALPACA_API_SECRET }}
+          ALPACA_PAPER: ${{ vars.ALPACA_PAPER || 'true' }}
